@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turnero - Quevedos Bank</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .turno {
+            margin: 10px 0;
+        }
+        .atendido {
+            color: green;
+        }
+        .cancelado {
+            color: red;
+        }
+        #formulario {
+            display: block;
+        }
+        #listaTurnos {
+            margin-top: 20px;
+        }
+        .mensaje {
+            color: blue;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bienvenidos a Quevedos Bank</h1>
+    
+    <div id="formulario">
+        <h2>Seleccione el tipo de servicio que requiere:</h2>
+        <select id="tipoServicio">
+            <option value="">Seleccione...</option>
+            <option value="sobregiro">Sobregiro</option>
+            <option value="prestamo">Préstamo</option>
+            <option value="asunto_con_cheques">Asunto con Cheques</option>
+            <option value="cobro_pago_credito">Cobro y/o Pago de Crédito</option>
+            <option value="cambio_monedas_extranjeras">Cambio de Monedas Extranjeras</option>
+            <option value="consulta">Consulta</option>
+            <option value="garantia_bancaria">Garantía Bancaria</option>
+        </select>
+        <button onclick="agregarTurno()">Agregar Turno</button>
+        <div id="mensajeEstado" class="mensaje"></div>
+    </div>
+
+    <h2>Turnos en Espera</h2>
+    <div id="listaTurnos"></div>
+
+    <h2>Historial de Turnos</h2>
+    <button onclick="mostrarHistorial()">Mostrar/Ocultar Historial</button>
+    <button onclick="reiniciarHistorial()">Reiniciar Historial</button>
+    <div id="historialTurnos" style="display:none;"></div>
+
+    <script>
+        class Turno {
+            constructor(id, problema, caja) {
+                this.id = id;
+                this.problema = problema;
+                this.estado = 'esperando'; // estados: esperando, atendido, cancelado
+                this.caja = caja;
+                this.temporizador = null; // Temporizador para cada turno
+                this.tiempo = 0; // Tiempo en segundos
+            }
+
+            iniciarTemporizador() {
+                this.temporizador = setInterval(() => {
+                    this.tiempo++;
+                    this.mostrarTiempo();
+                }, 1000);
+            }
+
+            mostrarTiempo() {
+                const turnoDiv = document.getElementById(`turno-${this.id}`);
+                if (turnoDiv) {
+                    const tiempoElement = turnoDiv.querySelector('.tiempo');
+                    tiempoElement.textContent = `Tiempo en espera: ${this.tiempo} seg`;
+                }
+            }
+
+            detenerTemporizador() {
+                clearInterval(this.temporizador);
+            }
+        }
+
+        class Turnero {
+            constructor() {
+                this.turnos = [];
+                this.historial = [];
+                this.contadores = {
+                    A: 0,
+                    B: 0,
+                    C: 0
+                };
+            }
+
+            agregarTurno(problema) {
+                let caja;
+                if (problema === "garantia_bancaria" || problema === "cobro_pago_credito") {
+                    caja = 'A';
+                } else if (problema === "prestamo" || problema === "asunto_con_cheques" || problema === "sobregiro") {
+                    caja = 'B';
+                } else {
+                    caja = 'C';
+                }
+
+                if (this.contadores[caja] >= 100) {
+                    alert(`La Caja ${caja} ha alcanzado su límite de turnos.`);
+                    return;
+                }
+
+                this.contadores[caja]++;
+                const nuevoTurno = new Turno(this.turnos.length + 1, problema, caja);
+                this.turnos.push(nuevoTurno);
+                nuevoTurno.iniciarTemporizador(); // Iniciar el temporizador
+                this.mostrarTurnos();
+                this.mostrarEstado(`Turno agregado a Caja ${caja}. ID: ${nuevoTurno.id} - Problema: ${problema}`);
+            }
+
+            atenderTurno(id) {
+                const turno = this.turnos.find(t => t.id === id);
+                if (turno) {
+                    turno.estado = 'atendido';
+                    turno.detenerTemporizador(); // Detener el temporizador
+                    const fecha = new Date();
+                    const fechaHora = `${fecha.toLocaleDateString()} ${fecha.toLocaleTimeString()}`;
+                    this.historial.push(`${turno.id}-caja ${turno.caja} - Atendido el: ${fechaHora} - Problema: ${turno.problema}`);
+                    this.turnos = this.turnos.filter(t => t.id !== id);
+                    this.mostrarTurnos();
+                    this.mostrarEstado(`Turno ${id} atendido.`);
+                }
+            }
+
+            cancelarTurno(id) {
+                const turno = this.turnos.find(t => t.id === id);
+                if (turno) {
+                    turno.estado = 'cancelado';
+                    turno.detenerTemporizador(); // Detener el temporizador
+                    const fecha = new Date();
+                    const fechaHora = `${fecha.toLocaleDateString()} ${fecha.toLocaleTimeString()}`;
+                    this.historial.push(`${turno.id}-caja ${turno.caja} - Cancelado el: ${fechaHora} - Problema: ${turno.problema}`);
+                    this.turnos = this.turnos.filter(t => t.id !== id);
+                    this.mostrarTurnos();
+                    this.mostrarEstado(`Turno ${id} cancelado.`);
+                }
+            }
+
+            mostrarTurnos() {
+                const listaTurnos = document.getElementById('listaTurnos');
+                listaTurnos.innerHTML = '';
+                this.turnos.forEach(turno => {
+                    const div = document.createElement('div');
+                    div.className = 'turno';
+                    div.id = `turno-${turno.id}`;
+                    div.innerHTML = `ID: ${turno.id}, Problema: ${turno.problema}, Caja: ${turno.caja}, Estado: <span>${turno.estado}</span>
+                        <button onclick="turnero.atenderTurno(${turno.id})">Atender</button>
+                        <button onclick="turnero.cancelarTurno(${turno.id})">Cancelar</button>
+                        <div class="tiempo">Tiempo en espera: ${turno.tiempo} seg</div>`;
+                    listaTurnos.appendChild(div);
+                });
+            }
+
+            mostrarHistorial() {
+                const historialTurnos = document.getElementById('historialTurnos');
+                historialTurnos.innerHTML = this.historial.join('<br>');
+            }
+
+            reiniciarHistorial() {
+                this.historial = [];
+                this.mostrarHistorial();
+                this.mostrarEstado('Historial reiniciado.');
+            }
+
+            mostrarEstado(mensaje) {
+                const mensajeEstado = document.getElementById('mensajeEstado');
+                mensajeEstado.textContent = mensaje;
+                setTimeout(() => {
+                    mensajeEstado.textContent = '';
+                }, 3000); // Mensaje desaparece después de 3 segundos
+            }
+        }
+
+        const turnero = new Turnero();
+
+        function agregarTurno() {
+            const tipoServicioSelect = document.getElementById('tipoServicio');
+            const problema = tipoServicioSelect.value;
+            if (problema) {
+                turnero.agregarTurno(problema);
+                tipoServicioSelect.selectedIndex = 0; // Limpiar el campo de selección
+            } else {
+                alert('Por favor, seleccione un tipo de servicio.');
+            }
+        }
+
+        function mostrarHistorial() {
+            const historialTurnos = document.getElementById('historialTurnos');
+            historialTurnos.style.display = historialTurnos.style.display === 'none' ? 'block' : 'none';
+            turnero.mostrarHistorial();
+        }
+
+        function reiniciarHistorial() {
+            turnero.reiniciarHistorial();
+        }
+    </script>
+</body>
+</html>
+
